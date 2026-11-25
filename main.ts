@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The fortune: one line, at most 200 characters, written for an AI agent.
@@ -16,9 +16,21 @@ function main(): void {
   if (LINE.includes("\n") || LINE.includes("\r")) {
     throw new Error("entry must be a single line");
   }
+  // No control characters: the gate reads the entry as plain UTF-8 text.
+  for (const ch of LINE) {
+    if (ch.charCodeAt(0) < 0x20) {
+      throw new Error("entry contains a control character");
+    }
+  }
   const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(join(outDir, "entry.txt"), LINE, "utf8");
+  const outPath = join(outDir, "entry.txt");
+  writeFileSync(outPath, LINE, "utf8");
+  // Read-back byte check: the file on disk must equal the gated line exactly.
+  const back = readFileSync(outPath, "utf8");
+  if (back !== LINE) {
+    throw new Error("read-back mismatch: entry.txt does not equal the gated line");
+  }
   console.log(`entry ok: ${LINE.length} chars`);
 }
 
